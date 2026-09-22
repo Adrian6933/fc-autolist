@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Maqueta Web App - pruebas de FC AutoList</title>
+<style>
+  body { background:#0e1220; color:#dbe2f0; font:13px "Segoe UI",sans-serif; margin:0; display:flex; gap:20px; padding:20px; }
+  .col { flex:1; max-width:460px; }
+  h2 { font-size:13px; color:#9aa6c4; text-transform:uppercase; letter-spacing:.5px; }
+  ul.itemList { list-style:none; margin:0; padding:0; }
+  li.listFUTItem { display:flex; align-items:center; gap:10px; padding:10px; margin-bottom:6px;
+    background:#182041; border:1px solid #27305a; border-radius:6px; cursor:pointer; }
+  li.listFUTItem.sel { border-color:#6ee7b7; }
+  .rating { background:#c9b037; color:#222; border-radius:3px; padding:2px 5px; font-weight:700; }
+  .name { flex:1; font-weight:600; }
+  .coins { color:#9aa6c4; }
+  .panel { background:#161c36; border:1px solid #27305a; border-radius:8px; padding:14px; }
+  .panel button { display:block; width:100%; margin:6px 0; padding:9px; border-radius:6px;
+    border:1px solid #38436b; background:#2a3360; color:#e8ecf5; cursor:pointer; }
+  .panel button[disabled] { opacity:.4; cursor:default; }
+  .panel input { width:100%; background:#0d1226; border:1px solid #2c3552; color:#fff; padding:6px; border-radius:4px; }
+  .field { margin:8px 0; }
+</style>
+</head>
+<body>
+  <div class="col">
+    <h2>Available Items</h2>
+    <ul class="itemList" id="list"></ul>
+  </div>
+
+  <div class="col">
+    <div class="panel" id="panel" hidden>
+      <div id="cardName" style="font-weight:700;margin-bottom:8px"></div>
+      <div>Bought For <span id="bought">0</span></div>
+      <div>Expected Profit <span id="profit">--</span></div>
+      <div class="field">Start Price: <input id="start" value=""></div>
+      <div class="field">Buy Now Price: <input id="bin" value=""></div>
+      <button id="confirm" disabled>List for Transfer</button>
+      <button id="lowest">List for Current Lowest BIN</button>
+      <button>Copy Deep Link</button>
+      <button>Quick Sell</button>
+    </div>
+  </div>
+
+<script>
+/* Sin chrome.storage (aqui no somos extension) la propia extension cae a
+   localStorage, asi que la maqueta no necesita shim. */
+
+const DATA = [
+  { r:79, n:'Borggrafe', bought:950, bin:800 },
+  { r:79, n:'Karl',      bought:750, bin:820 },
+  { r:78, n:'Tordin',    bought:650, bin:700 },
+  { r:78, n:'Leroux',    bought:650, bin:300 },
+  { r:77, n:'Flekken',   bought:650, bin:640 },
+  { r:77, n:'Gruda',     bought:650, bin:900 }
+];
+let current = null;
+const list = document.getElementById('list');
+const $ = (id) => document.getElementById(id);
+
+function render() {
+  list.innerHTML = '';
+  DATA.forEach((p, i) => {
+    const li = document.createElement('li');
+    li.className = 'listFUTItem' + (p === current ? ' sel' : '');
+    li.innerHTML = `<span class="rating">${p.r}</span><span class="name">${p.n}</span>
+      <span>Bought for <span class="coins">${p.bought}</span></span>`;
+    li.onclick = () => select(i);
+    list.appendChild(li);
+  });
+}
+
+function select(i) {
+  current = DATA[i] || null;
+  if (!current) { $('panel').hidden = true; render(); return; }
+  $('panel').hidden = false;
+  $('cardName').textContent = current.n;
+  $('bought').textContent = current.bought;
+  $('profit').textContent = '--';
+  $('start').value = '';
+  $('bin').value = '';
+  $('confirm').disabled = true;
+  render();
+}
+
+// el boton tarda un poco en responder, igual que en la web app real
+$('lowest').onclick = () => {
+  if (!current) return;
+  $('confirm').disabled = true;
+  setTimeout(() => {
+    if (!current) return;
+    const bin = current.bin;
+    $('start').value = String(bin - 50);
+    $('bin').value = String(bin);
+    const net = Math.round(bin * 0.95) - current.bought;
+    $('profit').textContent = `${net} (${((net / current.bought) * 100).toFixed(2)}%)`;
+    $('confirm').disabled = false;
+  }, 1200 + Math.random() * 800);
+};
+
+// al publicar, la web app pasa sola al siguiente item de la lista
+$('confirm').onclick = () => {
+  if (!current || $('confirm').disabled) return;
+  const i = DATA.indexOf(current);
+  DATA.splice(i, 1);
+  $('confirm').disabled = true;
+  select(Math.min(i, DATA.length - 1));
+};
+
+// atajo de teclado L, como el de FC Enhancer
+document.addEventListener('keydown', (e) => {
+  if ((e.key || '').toLowerCase() === 'l') $('confirm').click();
+});
+
+render();
+if (DATA.length) select(0);
+</script>
+
+<script src="../src/core.js"></script>
+<script src="../src/timers.js"></script>
+<script src="../src/engine.js"></script>
+<script src="../src/panel.js"></script>
+<script>
+  // en la maqueta montamos el panel a mano (boot.js exige la URL real de EA)
+  FCAL.loadConfig().then(() => FCAL.mountPanel());
+</script>
+</body>
+</html>

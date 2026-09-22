@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "FC AutoList",
+  "version": "0.3.0",
+  "description": "Pulsa en bucle el boton del precio mas bajo y confirma con L en la Web App de EA FC, hasta que pares.",
+  "permissions": [
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.ea.com/*/ultimate-team/web-app*",
+        "https://www.ea.com/ultimate-team/web-app*",
+        "https://www.easports.com/*/ultimate-team/web-app*",
+        "https://www.ea.com/*/fc/ultimate-team/web-app*"
+      ],
+      "js": [
+        "src/core.js",
+        "src/timers.js",
+        "src/engine.js",
+        "src/panel.js",
+        "src/boot.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ]
+}
