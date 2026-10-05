@@ -1,15 +1,14 @@
 /* FC AutoList - nucleo: config, almacenamiento y utilidades de DOM */
 (() => {
   const NS = (window.FCAL = window.FCAL || {});
-  NS.VERSION = '0.3.0';
+  NS.VERSION = '0.2.2';
 
   /* ---------------------------------------------------------------- config */
 
   NS.DEFAULTS = {
     waitTimeout: 20000,  // cuanto espera a que el boton termine de procesar
     afterList: 1200,     // espera despues de pulsar L, antes de la siguiente vuelta
-    jitter: 250,         // aleatorio que se suma a cada espera
-    background: true     // seguir trabajando con la pestana de fondo o minimizada
+    jitter: 250          // aleatorio que se suma a cada espera
   };
 
   NS.config = { ...NS.DEFAULTS };
@@ -49,10 +48,7 @@
     NS.config = { ...NS.DEFAULTS };
     // solo recuperamos las claves que siguen existiendo (versiones antiguas dejan basura)
     for (const k of Object.keys(NS.DEFAULTS)) {
-      const v = saved[k];
-      if (typeof v !== typeof NS.DEFAULTS[k]) continue;
-      if (typeof v === 'number' && !Number.isFinite(v)) continue;
-      NS.config[k] = v;
+      if (typeof saved[k] === 'number' && Number.isFinite(saved[k])) NS.config[k] = saved[k];
     }
     return NS.config;
   };
@@ -75,8 +71,7 @@
   NS.sleep = sleep;
 
   // espera base + un aleatorio, para no ir mas rapido de lo que la UI puede procesar
-  // (via NS.sleep: timers.js lo cambia por uno que no se duerme en segundo plano)
-  NS.pause = (base) => NS.sleep(base + Math.floor(Math.random() * (NS.config.jitter || 0)));
+  NS.pause = (base) => sleep(base + Math.floor(Math.random() * (NS.config.jitter || 0)));
 
   NS.norm = (s) =>
     (s || '')
@@ -106,14 +101,14 @@
   // Devuelve el elemento clicable visible cuyo texto coincide con alguno de los
   // textos dados. Se compara por texto porque las clases de la web app (y las de
   // FC Enhancer) cambian con cada parche.
-  NS.findByText = (texts, { root = document, all = false } = {}) => {
+  NS.findByText = (texts, { root = document, all = false, exact = false } = {}) => {
     const wanted = (Array.isArray(texts) ? texts : [texts]).map(NS.norm);
     const out = [];
     for (const el of root.querySelectorAll(CLICKABLE)) {
       if (!NS.visible(el)) continue;
       const t = NS.norm(el.textContent);
       if (!t || t.length > 60) continue;
-      if (!wanted.some((w) => t === w || t.startsWith(w))) continue;
+      if (!wanted.some((w) => t === w || (!exact && t.startsWith(w)))) continue;
       // nos quedamos con el elemento mas interno que contiene ese texto
       const i = out.findIndex((o) => o.contains(el));
       if (i >= 0) out[i] = el;
@@ -124,7 +119,9 @@
 
   /* ------------------------------------------------------------- interaccion */
 
-  NS.click = (el) => {
+  // opts.once = un solo clic (sin el `el.click()` extra del final). Para botones
+  // que quitan cosas, como "Remove", donde un segundo clic no puede pasar.
+  NS.click = (el, opts_ = {}) => {
     if (!el) return false;
     const r = el.getBoundingClientRect();
     const x = Math.round(r.left + r.width / 2);
@@ -136,7 +133,7 @@
       el.dispatchEvent(new PointerEvent('pointerup', { ...opts, pointerId: 1, isPrimary: true }));
       el.dispatchEvent(new MouseEvent('mouseup', opts));
       el.dispatchEvent(new MouseEvent('click', opts));
-      if (typeof el.click === 'function') el.click();
+      if (!opts_.once && typeof el.click === 'function') el.click();
       return true;
     } catch (e) {
       NS.log('No se pudo pulsar un elemento: ' + e.message, 'error');
@@ -164,7 +161,7 @@
         const v = fn();
         if (v) return v;
       } catch { /* la UI puede estar redibujando */ }
-      await NS.sleep(interval);
+      await sleep(interval);
     }
     return null;
   };

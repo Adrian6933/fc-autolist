@@ -26,6 +26,10 @@
     width: 100%; padding: 10px 6px; border-radius: 6px; border: 1px solid #5566e0;
     background: #4453c7; color: #fff; cursor: pointer; font-size: 13px; font-weight: 600;
   }
+  .row { display: flex; gap: 6px; }
+  .row .act { flex: 1; }
+  .cap { font-size: 10px; color: #9aa6c4; letter-spacing: .6px; text-transform: uppercase; margin-bottom: -3px; }
+  .hide { display: none !important; }
   button.act.on { background: #7a2340; border-color: #a3335a; }
   .big { text-align: center; font-size: 26px; font-weight: 700; letter-spacing: .5px; }
   .big small { display: block; font-size: 10px; font-weight: 500; color: #9aa6c4; letter-spacing: .6px; text-transform: uppercase; }
@@ -53,16 +57,18 @@
     </header>
     <div class="body">
       <div class="big"><span id="count">0</span><small>publicados</small></div>
-      <button class="act" id="toggle">Iniciar</button>
+      <div class="cap" id="cap">Iniciar con</div>
+      <div class="row" id="starts">
+        <button class="act" id="goLowest">Lowest BIN</button>
+        <button class="act" id="goFut">FUTNEXT</button>
+      </div>
+      <button class="act on hide" id="toggle">Parar</button>
       <details>
         <summary>Ajustes</summary>
         <div class="fields">
           <label class="f">Espera maxima (ms) <input type="number" id="waitTimeout" min="3000" step="1000"></label>
           <label class="f">Pausa entre vueltas (ms) <input type="number" id="afterList" min="200" step="100"></label>
           <label class="f">Aleatorio extra (ms) <input type="number" id="jitter" min="0" step="50"></label>
-          <label class="f" title="Mantiene el ritmo aunque cambies de pestana o minimices Chrome">
-            Seguir en segundo plano <input type="checkbox" id="background">
-          </label>
         </div>
       </details>
       <div class="log" id="log"></div>
@@ -104,21 +110,17 @@
     $('min').onclick = () => wrap.classList.toggle('min');
 
     /* ----------------------------------------------------------- control */
-    $('toggle').onclick = () => {
-      if (NS.engine.state === 'running') NS.engine.stop();
-      else NS.engine.start();
-    };
+    $('goLowest').onclick = () => NS.engine.start('lowestBin');
+    $('goFut').onclick = () => NS.engine.start('futnext');
+    $('toggle').onclick = () => NS.engine.stop();
 
     /* ----------------------------------------------------------- ajustes */
-    ['waitTimeout', 'afterList', 'jitter', 'background'].forEach((id) => {
+    ['waitTimeout', 'afterList', 'jitter'].forEach((id) => {
       const el = $(id);
-      const check = el.type === 'checkbox';
-      if (check) el.checked = !!NS.config[id];
-      else el.value = NS.config[id] ?? '';
+      el.value = NS.config[id] ?? '';
       el.onchange = () => {
-        NS.config[id] = check ? el.checked : Number(el.value);
+        NS.config[id] = Number(el.value);
         NS.saveConfig();
-        if (id === 'background' && NS.engine.state === 'running') NS.keepAwake(el.checked);
       };
     });
 
@@ -135,8 +137,10 @@
     NS.on('state', (E) => {
       const run = E.state === 'running';
       $('dot').className = 'dot' + (run ? ' running' : '');
-      $('toggle').textContent = run ? 'Parar' : 'Iniciar';
-      $('toggle').classList.toggle('on', run);
+      $('toggle').textContent = run ? `Parar (${E.mode === 'futnext' ? 'FUTNEXT' : 'Lowest BIN'})` : 'Parar';
+      $('toggle').classList.toggle('hide', !run);
+      $('starts').classList.toggle('hide', run);
+      $('cap').classList.toggle('hide', run);
       $('count').textContent = E.count;
     });
 

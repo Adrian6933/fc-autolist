@@ -10,15 +10,45 @@
       'Find lowest market price',
       'Cheapest'
     ],
-    confirm: ['List for Transfer']
+    futnext: ['List for FUTNEXT'],
+    confirm: ['List for Transfer'],
+    remove: ['Remove']
   };
   NS.TXT = TXT;
 
   const E = (NS.engine = {
     state: 'idle',   // idle | running
+    mode: 'lowestBin', // que boton se pulsa: 'lowestBin' | 'futnext'
     count: 0,        // vueltas completadas
-    fails: 0
+    fails: 0,
+    removed: 0,      // veces que se ha pulsado "Remove" en esta tanda
+    removeStreak: 0  // ... seguidas, sin publicar nada entre medias
   });
+
+  // Si sale el boton "Remove" se pulsa. Solo el texto EXACTO "Remove" (no
+  // "Remove All", "Remove from club"...), como mucho una vez por segundo, y si
+  // hay que pulsarlo REMOVE_MAX_STREAK veces seguidas sin publicar nada entre
+  // medias, se para: algo raro pasa y no se debe seguir quitando cosas.
+  const REMOVE_MAX_STREAK = 5;
+  let lastRemove = 0;
+  const tryRemove = () => {
+    const btn = NS.findByText(TXT.remove, { exact: true });
+    if (!btn || !NS.enabled(btn)) return false;
+    if (Date.now() - lastRemove < 1000) return false;
+    lastRemove = Date.now();
+    NS.click(btn, { once: true });
+    E.removed++;
+    E.removeStreak++;
+    NS.log(`Boton Remove pulsado (${E.removeStreak} seguidas).`, 'warn');
+    return true;
+  };
+  const removeTooMuch = () => {
+    if (E.removeStreak < REMOVE_MAX_STREAK) return false;
+    NS.log(`Remove ha salido ${E.removeStreak} veces seguidas sin publicar nada. Paro para que lo mires.`, 'error');
+    return true;
+  };
+
+  const MODE_NAME = { lowestBin: 'del precio mas bajo', futnext: 'List for FUTNEXT' };
 
   const emit = () => NS.listeners.state.forEach((f) => f(E));
   const setState = (s) => { E.state = s; emit(); };
@@ -31,9 +61,15 @@
 
   const loop = async () => {
     while (E.state === 'running') {
-      const bin = NS.findByText(TXT.lowestBin);
+      if (tryRemove()) {
+        if (removeTooMuch()) break;
+        await NS.pause(NS.config.afterList);
+        continue;
+      }
+
+      const bin = NS.findByText(TXT[E.mode]);
       if (!bin) {
-        NS.log('No veo el boton del precio mas bajo. Esperando...', 'warn');
+        NS.log(`No veo el boton ${MODE_NAME[E.mode]}. Esperando...`, 'warn');
         await NS.sleep(1500);
         continue;
       }
@@ -42,12 +78,22 @@
       await NS.sleep(400); // que la UI se entere del clic antes de mirar el estado
 
       // la espera se corta sola si el usuario para a mitad
+      let removedWhileWaiting = false;
       const ready = await NS.waitFor(
-        () => (E.state !== 'running' ? true : confirmReady()),
+        () => {
+          if (E.state !== 'running') return true;
+          if (tryRemove()) { removedWhileWaiting = true; return true; }
+          return confirmReady();
+        },
         NS.config.waitTimeout,
         200
       );
       if (E.state !== 'running') break;
+      if (removedWhileWaiting) {
+        if (removeTooMuch()) break;
+        await NS.pause(NS.config.afterList);
+        continue; // se quito el jugador: no se pulsa la L
+      }
 
       if (!ready) {
         E.fails++;
@@ -63,6 +109,7 @@
       const gone = await NS.waitFor(() => (confirmReady() ? null : true), 6000, 200);
 
       E.count++;
+      E.removeStreak = 0; // publicar cuenta como "todo normal"
       if (!gone) NS.log(`Vuelta ${E.count}: pulsada la L, pero el boton sigue ahi.`, 'warn');
       else NS.log(`Vuelta ${E.count}: publicado.`, 'ok');
       emit();
@@ -70,18 +117,21 @@
       await NS.pause(NS.config.afterList);
     }
 
-    NS.keepAwake(false);
     setState('idle');
-    NS.log(`Parado. ${E.count} publicados en esta tanda.`, 'ok');
+    NS.log(`Parado. ${E.count} publicados${E.removed ? `, ${E.removed} Remove pulsados` : ''} en esta tanda.`, 'ok');
   };
 
-  E.start = () => {
+  E.start = (mode = 'lowestBin') => {
     if (E.state === 'running') return;
+    if (!TXT[mode] || mode === 'confirm') mode = 'lowestBin';
+    E.mode = mode;
     E.count = 0;
     E.fails = 0;
+    E.removed = 0;
+    E.removeStreak = 0;
+    lastRemove = 0;
     setState('running');
-    if (NS.config.background) NS.keepAwake(true);
-    NS.log(`En marcha (reloj: ${NS.timerMode()}). Esc o Parar para cortar.`, 'ok');
+    NS.log(`En marcha con ${mode === 'futnext' ? 'List for FUTNEXT' : 'Lowest BIN'}. Esc o Parar para cortar.`, 'ok');
     loop();
   };
 

@@ -37,6 +37,7 @@
       <div class="field">Buy Now Price: <input id="bin" value=""></div>
       <button id="confirm" disabled>List for Transfer</button>
       <button id="lowest">List for Current Lowest BIN</button>
+      <button id="futnext">List for FUTNEXT</button>
       <button>Copy Deep Link</button>
       <button>Quick Sell</button>
     </div>
@@ -98,6 +99,27 @@ $('lowest').onclick = () => {
   }, 1200 + Math.random() * 800);
 };
 
+// Botones "Remove" para probar. mock.remove(n) hace aparecer un "Remove" que, al pulsarlo,
+// desaparece (y vuelve a aparecer hasta n veces si n > 1); mock.removeTxt cambia el texto.
+window.mock = window.mock || {};
+window.mock.removeClicks = 0;
+window.mock.removeTxt = 'Remove';
+window.mock.remove = (times = 1) => {
+  let left = times;
+  const show = () => {
+    const b = document.createElement('button');
+    b.id = 'removeBtn';
+    b.textContent = window.mock.removeTxt;
+    b.style.cssText = 'position:fixed;left:40px;top:330px;padding:10px 24px;z-index:5';
+    b.onclick = () => { window.mock.removeClicks++; b.remove(); if (--left > 0) setTimeout(show, 100); };
+    document.body.appendChild(b);
+  };
+  show();
+};
+
+// "List for FUTNEXT" tambien busca un precio y lo rellena, igual que el otro
+$('futnext').onclick = $('lowest').onclick;
+
 // al publicar, la web app pasa sola al siguiente item de la lista
 $('confirm').onclick = () => {
   if (!current || $('confirm').disabled) return;
@@ -117,7 +139,6 @@ if (DATA.length) select(0);
 </script>
 
 <script src="../src/core.js"></script>
-<script src="../src/timers.js"></script>
 <script src="../src/engine.js"></script>
 <script src="../src/panel.js"></script>
 <script>

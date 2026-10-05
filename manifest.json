@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "FC AutoList",
-  "version": "0.3.0",
-  "description": "Pulsa en bucle el boton del precio mas bajo y confirma con L en la Web App de EA FC, hasta que pares.",
+  "version": "0.2.2",
+  "description": "Pulsa en bucle el boton de precio (Lowest BIN o FUTNEXT) y confirma con L en la Web App de EA FC, hasta que pares.",
   "permissions": [
     "storage"
   ],
@@ -16,7 +16,6 @@
       ],
       "js": [
         "src/core.js",
-        "src/timers.js",
         "src/engine.js",
         "src/panel.js",
         "src/boot.js"
